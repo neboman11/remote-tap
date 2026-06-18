@@ -46,6 +46,14 @@
         android:layout_marginBottom="12dp" />
 
     <Button
+        android:id="@+id/btn_preview_tap"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Preview tap location"
+        android:layout_marginBottom="12dp"
+        style="@style/Widget.Material3.Button.OutlinedButton" />
+
+    <Button
         android:id="@+id/btn_clear_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

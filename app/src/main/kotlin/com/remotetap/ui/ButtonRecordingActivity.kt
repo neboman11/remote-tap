@@ -35,6 +35,17 @@ class ButtonRecordingActivity : AppCompatActivity() {
             if (isRecording()) stopRecordingMode() else startRecordingMode()
         }
 
+        binding.btnPreviewTap.setOnClickListener {
+            val service = RemoteTapAccessibilityService.instance
+            if (service == null) {
+                Toast.makeText(this, "Accessibility service not running.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            Toast.makeText(this, "Showing tap location for 3 seconds…", Toast.LENGTH_SHORT).show()
+            moveTaskToBack(true)
+            service.showTapIndicator()
+        }
+
         binding.btnClearButton.setOnClickListener {
             prefs.buttonConfig = null
             updateStatus()
@@ -84,7 +95,7 @@ class ButtonRecordingActivity : AppCompatActivity() {
         val pkg = targetPackage ?: return
 
         binding.btnStartRecording.text = "Cancel"
-        binding.tvInstructions.text = "Switch to $targetAppLabel and tap the button you want to record. You have 30 seconds."
+        binding.tvInstructions.text = "Switch to $targetAppLabel — recording will activate automatically once you're there. Then tap the button."
 
         service.startRecordingMode(pkg) { config ->
             runOnUiThread {
@@ -128,14 +139,16 @@ class ButtonRecordingActivity : AppCompatActivity() {
             }
             binding.tvCurrentButton.text = "Recorded: $label\n(${config.packageName})"
             binding.btnClearButton.isEnabled = true
+            binding.btnPreviewTap.isEnabled = true
         } else {
             binding.tvCurrentButton.text = "No button recorded yet"
             binding.btnClearButton.isEnabled = false
+            binding.btnPreviewTap.isEnabled = false
         }
     }
 
     private fun getDefaultInstructions(): String {
         val app = targetAppLabel ?: return "First select the target app, then tap 'Record button' and tap the button in that app."
-        return "Tap 'Record button', switch to $app, then tap the button you want to control remotely."
+        return "Tap 'Record button', switch to $app — recording activates automatically. Then tap the button."
     }
 }
