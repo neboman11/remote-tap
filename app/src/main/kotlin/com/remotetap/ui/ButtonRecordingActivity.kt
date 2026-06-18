@@ -90,7 +90,8 @@ class ButtonRecordingActivity : AppCompatActivity() {
             runOnUiThread {
                 handler.removeCallbacks(recordingTimeout)
                 if (config != null) {
-                    Toast.makeText(this, "Recorded: ${config.text.ifEmpty { config.contentDescription.ifEmpty { config.viewId } }}", Toast.LENGTH_LONG).show()
+                    val label = config.text.ifEmpty { config.contentDescription.ifEmpty { config.viewId.ifEmpty { "tap at (${config.boundsInScreen.centerX()}, ${config.boundsInScreen.centerY()})" } } }
+                    Toast.makeText(this, "Recorded: $label", Toast.LENGTH_LONG).show()
                 } else {
                     Toast.makeText(this, "Nothing recorded.", Toast.LENGTH_SHORT).show()
                 }
@@ -118,7 +119,13 @@ class ButtonRecordingActivity : AppCompatActivity() {
     private fun updateStatus() {
         val config = prefs.buttonConfig
         if (config != null) {
-            val label = config.text.ifEmpty { config.contentDescription.ifEmpty { config.viewId } }
+            val label = config.text.ifEmpty {
+                config.contentDescription.ifEmpty {
+                    config.viewId.ifEmpty {
+                        "tap at (${config.boundsInScreen.centerX()}, ${config.boundsInScreen.centerY()})"
+                    }
+                }
+            }
             binding.tvCurrentButton.text = "Recorded: $label\n(${config.packageName})"
             binding.btnClearButton.isEnabled = true
         } else {

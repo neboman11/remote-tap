@@ -21,6 +21,7 @@ class RemoteTapAccessibilityService : AccessibilityService() {
 
     private lateinit var prefs: PreferencesRepository
     private var recordingOverlay: View? = null
+    private var recordingTargetPackage: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -45,6 +46,7 @@ class RemoteTapAccessibilityService : AccessibilityService() {
      */
     fun startRecordingMode(targetPackage: String, onRecorded: (ButtonConfig?) -> Unit) {
         cancelRecordingMode()
+        recordingTargetPackage = targetPackage
 
         val wm = getSystemService(WindowManager::class.java)
         val params = WindowManager.LayoutParams(
@@ -72,6 +74,7 @@ class RemoteTapAccessibilityService : AccessibilityService() {
     fun cancelRecordingMode() {
         val overlay = recordingOverlay ?: return
         recordingOverlay = null
+        recordingTargetPackage = null
         runCatching { getSystemService(WindowManager::class.java).removeView(overlay) }
     }
 
@@ -108,6 +111,7 @@ class RemoteTapAccessibilityService : AccessibilityService() {
         // No named node found (e.g. React Native). Save coordinates only so
         // pressRecordedButton can fall back to dispatchGesture.
         return ButtonConfig(
+            packageName = recordingTargetPackage ?: "",
             boundsInScreen = SerializableRect(
                 left = (x - 1).toInt(), top = (y - 1).toInt(),
                 right = (x + 1).toInt(), bottom = (y + 1).toInt()
