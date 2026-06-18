@@ -178,7 +178,15 @@ class RemoteTapAccessibilityService : AccessibilityService() {
                     ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 if (launch != null) {
                     applicationContext.startActivity(launch)
-                    Thread.sleep(800) // brief wait for the app to surface
+                    // Poll until the target window is active, up to 5 seconds
+                    val deadline = System.currentTimeMillis() + 5_000L
+                    while (System.currentTimeMillis() < deadline) {
+                        val pkg = rootInActiveWindow?.also { it.recycle() }?.packageName?.toString()
+                        if (pkg == config.packageName) break
+                        Thread.sleep(100)
+                    }
+                    // Small settle time after the window appears so the UI finishes rendering
+                    Thread.sleep(500)
                 }
             }
         }
@@ -205,7 +213,7 @@ class RemoteTapAccessibilityService : AccessibilityService() {
         if (x == 0f && y == 0f) return false
         val path = Path().apply { moveTo(x, y) }
         val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, 50))
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 150))
             .build()
         return dispatchGesture(gesture, null, null)
     }
