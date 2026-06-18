@@ -1,27 +1,22 @@
 package com.remotetap.ui
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.remotetap.databinding.ActivityButtonRecordingBinding
 import com.remotetap.repository.PreferencesRepository
 import com.remotetap.service.RemoteTapAccessibilityService
 
-/**
- * Guides the user through recording the target button:
- * 1. Open the target app
- * 2. Come back here and tap "I'm ready"
- * 3. A transparent overlay appears — tap on the target button
- * 4. The accessibility service captures the node info and saves it
- *
- * The overlay approach avoids needing the user to coordinate timing;
- * they tap the exact button they want recorded.
- */
 class ButtonRecordingActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityButtonRecordingBinding
     private lateinit var prefs: PreferencesRepository
-    private var isRecording = false
+    private val handler = Handler(Looper.getMainLooper())
+    private val recordingTimeout = Runnable {
+        if (isRecording()) stopRecordingMode(timedOut = true)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,7 +25,7 @@ class ButtonRecordingActivity : AppCompatActivity() {
         prefs = PreferencesRepository(this)
 
         binding.btnStartRecording.setOnClickListener {
-            if (!isRecording) startRecordingMode() else stopRecordingMode()
+            if (isRecording()) stopRecordingMode() else startRecordingMode()
         }
 
         binding.btnClearButton.setOnClickListener {
@@ -40,37 +35,54 @@ class ButtonRecordingActivity : AppCompatActivity() {
         }
 
         updateStatus()
+        binding.tvInstructions.text = getDefaultInstructions()
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacks(recordingTimeout)
+        RemoteTapAccessibilityService.instance?.cancelRecordingMode()
+    }
+
+    private fun isRecording() = RemoteTapAccessibilityService.instance?.isRecording() == true
 
     private fun startRecordingMode() {
         val service = RemoteTapAccessibilityService.instance
         if (service == null) {
-            Toast.makeText(this, "Accessibility service is not running. Please enable it first.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Accessibility service is not running — enable it in Settings first.", Toast.LENGTH_LONG).show()
             return
         }
 
-        isRecording = true
-        binding.btnStartRecording.text = "Cancel recording"
-        binding.tvInstructions.text = "Switch to the target app and tap the button you want to record. The overlay is active."
+        binding.btnStartRecording.text = "Cancel"
+        binding.tvInstructions.text = "Now switch to the target app and tap the button you want to record. You have 30 seconds."
 
-        service.showRecordingOverlay { config ->
+        service.startRecordingMode { config ->
             runOnUiThread {
+                handler.removeCallbacks(recordingTimeout)
                 if (config != null) {
-                    Toast.makeText(this, "Button recorded!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Recorded: ${config.text.ifEmpty { config.contentDescription.ifEmpty { config.viewId } }}", Toast.LENGTH_LONG).show()
                 } else {
-                    Toast.makeText(this, "Could not identify a button at that location.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Nothing recorded.", Toast.LENGTH_SHORT).show()
                 }
-                stopRecordingMode()
+                resetRecordingUI()
             }
         }
 
-        // Put RemoteTap in background so the target app is visible through the overlay
+        // Cancel automatically after 30s so the user isn't stuck in recording mode
+        handler.postDelayed(recordingTimeout, 30_000L)
+
+        // Bring the previous app to the foreground
         moveTaskToBack(true)
     }
 
-    private fun stopRecordingMode() {
-        isRecording = false
-        RemoteTapAccessibilityService.instance?.cancelRecordingOverlay()
+    private fun stopRecordingMode(timedOut: Boolean = false) {
+        RemoteTapAccessibilityService.instance?.cancelRecordingMode()
+        if (timedOut) Toast.makeText(this, "Recording timed out.", Toast.LENGTH_SHORT).show()
+        resetRecordingUI()
+    }
+
+    private fun resetRecordingUI() {
+        handler.removeCallbacks(recordingTimeout)
         binding.btnStartRecording.text = "Record button"
         binding.tvInstructions.text = getDefaultInstructions()
         updateStatus()
@@ -80,7 +92,7 @@ class ButtonRecordingActivity : AppCompatActivity() {
         val config = prefs.buttonConfig
         if (config != null) {
             val label = config.text.ifEmpty { config.contentDescription.ifEmpty { config.viewId } }
-            binding.tvCurrentButton.text = "Recorded button: $label\n(${config.packageName})"
+            binding.tvCurrentButton.text = "Recorded: $label\n(${config.packageName})"
             binding.btnClearButton.isEnabled = true
         } else {
             binding.tvCurrentButton.text = "No button recorded yet"
@@ -89,5 +101,5 @@ class ButtonRecordingActivity : AppCompatActivity() {
     }
 
     private fun getDefaultInstructions() =
-        "Tap 'Record button', then switch to the app and tap the button you want to control remotely."
+        "Open the target app and navigate to the screen with the button. Come back here, tap 'Record button', then tap the button in that app."
 }
