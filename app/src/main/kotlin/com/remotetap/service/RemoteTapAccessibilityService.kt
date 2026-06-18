@@ -3,7 +3,10 @@ package com.remotetap.service
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.view.View
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.remotetap.model.ButtonConfig
@@ -17,10 +20,7 @@ class RemoteTapAccessibilityService : AccessibilityService() {
     }
 
     private lateinit var prefs: PreferencesRepository
-
-    // Non-null while the user is in "tap the button you want to record" mode.
-    private var onRecordingCallback: ((ButtonConfig?) -> Unit)? = null
-    private var recordingTargetPackage: String? = null
+    private var recordingOverlay: View? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -30,66 +30,110 @@ class RemoteTapAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        onRecordingCallback = null
+        cancelRecordingMode()
         instance = null
     }
 
     override fun onInterrupt() {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
 
     /**
-     * When a click event arrives and we're in recording mode, capture the source node
-     * and save it as the button config. Ignores clicks inside RemoteTap itself so that
-     * tapping "Cancel" in ButtonRecordingActivity doesn't accidentally record a button.
-     */
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        val callback = onRecordingCallback ?: return
-        if (event?.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
-
-        val source = event.source ?: return
-        val sourcePkg = source.packageName?.toString()
-        if (sourcePkg == applicationContext.packageName ||
-            (recordingTargetPackage != null && sourcePkg != recordingTargetPackage)) {
-            source.recycle()
-            return
-        }
-
-        val bounds = Rect()
-        source.getBoundsInScreen(bounds)
-        val config = ButtonConfig(
-            packageName = source.packageName?.toString() ?: "",
-            viewId = source.viewIdResourceName ?: "",
-            text = source.text?.toString() ?: "",
-            contentDescription = source.contentDescription?.toString() ?: "",
-            className = source.className?.toString() ?: "",
-            boundsInScreen = SerializableRect(bounds.left, bounds.top, bounds.right, bounds.bottom)
-        )
-        source.recycle()
-
-        onRecordingCallback = null
-        recordingTargetPackage = null
-        prefs.buttonConfig = config
-        callback(config)
-    }
-
-    /**
-     * Enter recording mode: the next tap in [targetPackage] is captured and saved.
-     * Call [cancelRecordingMode] to exit without recording.
+     * Shows a full-screen TYPE_ACCESSIBILITY_OVERLAY. The next touch is captured:
+     * we try to resolve the tapped view via the accessibility node tree (works for
+     * native Android views), and always save the coordinates as a fallback for apps
+     * like React Native that don't expose named nodes.
      */
     fun startRecordingMode(targetPackage: String, onRecorded: (ButtonConfig?) -> Unit) {
-        recordingTargetPackage = targetPackage
-        onRecordingCallback = onRecorded
+        cancelRecordingMode()
+
+        val wm = getSystemService(WindowManager::class.java)
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        )
+
+        val overlay = View(this)
+        recordingOverlay = overlay
+
+        overlay.setOnTouchListener { _, event ->
+            val config = captureNodeAtPoint(event.rawX, event.rawY)
+            cancelRecordingMode()
+            if (config != null) prefs.buttonConfig = config
+            onRecorded(config)
+            true
+        }
+
+        wm.addView(overlay, params)
     }
 
     fun cancelRecordingMode() {
-        onRecordingCallback = null
-        recordingTargetPackage = null
+        val overlay = recordingOverlay ?: return
+        recordingOverlay = null
+        runCatching { getSystemService(WindowManager::class.java).removeView(overlay) }
     }
 
-    fun isRecording() = onRecordingCallback != null
+    fun isRecording() = recordingOverlay != null
+
+    /**
+     * Tries to find the accessibility node at (x, y). For native Android views this
+     * captures viewId/text for reliable future matching. For React Native and other
+     * frameworks it falls back to saving just the screen coordinates, which are used
+     * by [pressRecordedButton] via dispatchGesture.
+     */
+    private fun captureNodeAtPoint(x: Float, y: Float): ButtonConfig? {
+        val bounds = Rect()
+
+        val root = rootInActiveWindow
+        if (root != null) {
+            val node = findClickableNodeAt(root, x.toInt(), y.toInt())
+            if (node != null) {
+                node.getBoundsInScreen(bounds)
+                val config = ButtonConfig(
+                    packageName = node.packageName?.toString() ?: "",
+                    viewId = node.viewIdResourceName ?: "",
+                    text = node.text?.toString() ?: "",
+                    contentDescription = node.contentDescription?.toString() ?: "",
+                    className = node.className?.toString() ?: "",
+                    boundsInScreen = SerializableRect(bounds.left, bounds.top, bounds.right, bounds.bottom)
+                )
+                node.recycle()
+                return config
+            }
+            root.recycle()
+        }
+
+        // No named node found (e.g. React Native). Save coordinates only so
+        // pressRecordedButton can fall back to dispatchGesture.
+        return ButtonConfig(
+            boundsInScreen = SerializableRect(
+                left = (x - 1).toInt(), top = (y - 1).toInt(),
+                right = (x + 1).toInt(), bottom = (y + 1).toInt()
+            )
+        )
+    }
+
+    private fun findClickableNodeAt(node: AccessibilityNodeInfo, x: Int, y: Int): AccessibilityNodeInfo? {
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        if (!bounds.contains(x, y)) return null
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findClickableNodeAt(child, x, y)
+            if (result != null) return result
+            child.recycle()
+        }
+        return if (node.isClickable) node else null
+    }
 
     /**
      * Called by CommandListenerService when a PRESS command arrives.
-     * Tries to find the recorded button by node info first, falls back to coordinates.
+     * Tries node-based ACTION_CLICK first; falls back to dispatchGesture at
+     * the recorded coordinates (required for React Native and other apps that
+     * don't expose named accessibility nodes).
      */
     fun pressRecordedButton(): Boolean {
         val config = prefs.buttonConfig ?: return false
