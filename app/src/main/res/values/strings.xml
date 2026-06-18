@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RemoteTap</string>
+    <string name="accessibility_service_label">RemoteTap Button Controller</string>
+    <string name="accessibility_service_description">Allows RemoteTap to simulate button presses in other apps when triggered remotely from your other phone.</string>
+</resources>
