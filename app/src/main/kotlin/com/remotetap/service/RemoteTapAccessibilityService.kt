@@ -5,6 +5,7 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -61,6 +62,7 @@ class RemoteTapAccessibilityService : AccessibilityService() {
         recordingOverlay = overlay
 
         overlay.setOnTouchListener { _, event ->
+            if (event.action != MotionEvent.ACTION_DOWN) return@setOnTouchListener true
             val config = captureNodeAtPoint(event.rawX, event.rawY)
             cancelRecordingMode()
             if (config != null) prefs.buttonConfig = config
