@@ -1,9 +1,11 @@
 package com.remotetap.ui
 
+import android.content.pm.ResolveInfo
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.remotetap.databinding.ActivityButtonRecordingBinding
 import com.remotetap.repository.PreferencesRepository
@@ -18,11 +20,16 @@ class ButtonRecordingActivity : AppCompatActivity() {
         if (isRecording()) stopRecordingMode(timedOut = true)
     }
 
+    private var targetPackage: String? = null
+    private var targetAppLabel: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityButtonRecordingBinding.inflate(layoutInflater)
         setContentView(binding.root)
         prefs = PreferencesRepository(this)
+
+        binding.btnSelectApp.setOnClickListener { showAppPicker() }
 
         binding.btnStartRecording.setOnClickListener {
             if (isRecording()) stopRecordingMode() else startRecordingMode()
@@ -46,17 +53,40 @@ class ButtonRecordingActivity : AppCompatActivity() {
 
     private fun isRecording() = RemoteTapAccessibilityService.instance?.isRecording() == true
 
+    private fun showAppPicker() {
+        val pm = packageManager
+        val launchIntent = android.content.Intent(android.content.Intent.ACTION_MAIN, null)
+            .addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        val apps: List<ResolveInfo> = pm.queryIntentActivities(launchIntent, 0)
+            .filter { it.activityInfo.packageName != packageName }
+            .sortedBy { it.loadLabel(pm).toString().lowercase() }
+
+        val labels = apps.map { it.loadLabel(pm).toString() }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Select target app")
+            .setItems(labels) { _, index ->
+                targetPackage = apps[index].activityInfo.packageName
+                targetAppLabel = labels[index]
+                binding.btnSelectApp.text = targetAppLabel
+                binding.btnStartRecording.isEnabled = true
+                binding.tvInstructions.text = getDefaultInstructions()
+            }
+            .show()
+    }
+
     private fun startRecordingMode() {
         val service = RemoteTapAccessibilityService.instance
         if (service == null) {
             Toast.makeText(this, "Accessibility service is not running — enable it in Settings first.", Toast.LENGTH_LONG).show()
             return
         }
+        val pkg = targetPackage ?: return
 
         binding.btnStartRecording.text = "Cancel"
-        binding.tvInstructions.text = "Now switch to the target app and tap the button you want to record. You have 30 seconds."
+        binding.tvInstructions.text = "Switch to $targetAppLabel and tap the button you want to record. You have 30 seconds."
 
-        service.startRecordingMode { config ->
+        service.startRecordingMode(pkg) { config ->
             runOnUiThread {
                 handler.removeCallbacks(recordingTimeout)
                 if (config != null) {
@@ -68,10 +98,7 @@ class ButtonRecordingActivity : AppCompatActivity() {
             }
         }
 
-        // Cancel automatically after 30s so the user isn't stuck in recording mode
         handler.postDelayed(recordingTimeout, 30_000L)
-
-        // Bring the previous app to the foreground
         moveTaskToBack(true)
     }
 
@@ -100,6 +127,8 @@ class ButtonRecordingActivity : AppCompatActivity() {
         }
     }
 
-    private fun getDefaultInstructions() =
-        "Open the target app and navigate to the screen with the button. Come back here, tap 'Record button', then tap the button in that app."
+    private fun getDefaultInstructions(): String {
+        val app = targetAppLabel ?: return "First select the target app, then tap 'Record button' and tap the button in that app."
+        return "Tap 'Record button', switch to $app, then tap the button you want to control remotely."
+    }
 }

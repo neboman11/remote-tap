@@ -20,6 +20,7 @@ class RemoteTapAccessibilityService : AccessibilityService() {
 
     // Non-null while the user is in "tap the button you want to record" mode.
     private var onRecordingCallback: ((ButtonConfig?) -> Unit)? = null
+    private var recordingTargetPackage: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -45,7 +46,9 @@ class RemoteTapAccessibilityService : AccessibilityService() {
         if (event?.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
 
         val source = event.source ?: return
-        if (source.packageName?.toString() == applicationContext.packageName) {
+        val sourcePkg = source.packageName?.toString()
+        if (sourcePkg == applicationContext.packageName ||
+            (recordingTargetPackage != null && sourcePkg != recordingTargetPackage)) {
             source.recycle()
             return
         }
@@ -63,20 +66,23 @@ class RemoteTapAccessibilityService : AccessibilityService() {
         source.recycle()
 
         onRecordingCallback = null
+        recordingTargetPackage = null
         prefs.buttonConfig = config
         callback(config)
     }
 
     /**
-     * Enter recording mode: the next tap in any other app is captured and saved.
+     * Enter recording mode: the next tap in [targetPackage] is captured and saved.
      * Call [cancelRecordingMode] to exit without recording.
      */
-    fun startRecordingMode(onRecorded: (ButtonConfig?) -> Unit) {
+    fun startRecordingMode(targetPackage: String, onRecorded: (ButtonConfig?) -> Unit) {
+        recordingTargetPackage = targetPackage
         onRecordingCallback = onRecorded
     }
 
     fun cancelRecordingMode() {
         onRecordingCallback = null
+        recordingTargetPackage = null
     }
 
     fun isRecording() = onRecordingCallback != null
