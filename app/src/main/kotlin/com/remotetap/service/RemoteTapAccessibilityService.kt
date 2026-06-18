@@ -2,9 +2,11 @@ package com.remotetap.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Intent
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -18,6 +20,7 @@ class RemoteTapAccessibilityService : AccessibilityService() {
 
     companion object {
         var instance: RemoteTapAccessibilityService? = null
+        private const val TAG = "RemoteTap"
     }
 
     private lateinit var prefs: PreferencesRepository
@@ -140,18 +143,48 @@ class RemoteTapAccessibilityService : AccessibilityService() {
      * Tries node-based ACTION_CLICK first; falls back to dispatchGesture at
      * the recorded coordinates (required for React Native and other apps that
      * don't expose named accessibility nodes).
+     *
+     * If the target app isn't in the foreground and we have a packageName,
+     * launch it first and wait briefly for it to appear.
      */
     fun pressRecordedButton(): Boolean {
-        val config = prefs.buttonConfig ?: return false
-        val rootNode = rootInActiveWindow ?: return performCoordinateTap(config)
-        val targetNode = findNode(rootNode, config)
-        return if (targetNode != null) {
-            targetNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            targetNode.recycle()
-            true
-        } else {
-            performCoordinateTap(config)
+        val config = prefs.buttonConfig ?: run {
+            Log.w(TAG, "pressRecordedButton: no button config saved")
+            return false
         }
+        Log.d(TAG, "pressRecordedButton: pkg=${config.packageName} viewId=${config.viewId} text=${config.text} coords=(${config.boundsInScreen.centerX()},${config.boundsInScreen.centerY()})")
+
+        // Try node-based click first (works for native Android views)
+        val rootNode = rootInActiveWindow
+        Log.d(TAG, "rootInActiveWindow pkg=${rootNode?.packageName}")
+        if (rootNode != null) {
+            val targetNode = findNode(rootNode, config)
+            if (targetNode != null) {
+                Log.d(TAG, "found node via accessibility tree, performing ACTION_CLICK")
+                targetNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                targetNode.recycle()
+                return true
+            }
+            rootNode.recycle()
+        }
+
+        // Node not found — bring the target app to the foreground if needed, then gesture
+        if (config.packageName.isNotEmpty()) {
+            val currentPkg = rootInActiveWindow?.also { it.recycle() }?.packageName?.toString()
+            if (currentPkg != config.packageName) {
+                Log.d(TAG, "target app not in foreground (current=$currentPkg), launching ${config.packageName}")
+                val launch = applicationContext.packageManager
+                    .getLaunchIntentForPackage(config.packageName)
+                    ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                if (launch != null) {
+                    applicationContext.startActivity(launch)
+                    Thread.sleep(800) // brief wait for the app to surface
+                }
+            }
+        }
+
+        Log.d(TAG, "falling back to dispatchGesture at (${config.boundsInScreen.centerX()},${config.boundsInScreen.centerY()})")
+        return performCoordinateTap(config)
     }
 
     private fun findNode(root: AccessibilityNodeInfo, config: ButtonConfig): AccessibilityNodeInfo? {

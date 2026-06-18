@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.remotetap.R
 import com.remotetap.repository.CommandRepository
@@ -52,10 +53,17 @@ class CommandListenerService : Service() {
                 runCatching {
                     repo.observeIncomingCommands().collect { command ->
                         delayMs = 1_000L // reset backoff on successful message
+                        val ageMs = System.currentTimeMillis() - command.timestampMs
+                        Log.d(TAG, "command received id=${command.id} ageMs=$ageMs")
                         // Discard commands queued while the phone was offline (ntfy caches 12h by default)
-                        if (System.currentTimeMillis() - command.timestampMs > 30_000L) return@collect
+                        if (ageMs > 30_000L) {
+                            Log.d(TAG, "discarding stale command (age=${ageMs}ms)")
+                            return@collect
+                        }
                         val service = RemoteTapAccessibilityService.instance
+                        if (service == null) Log.w(TAG, "accessibility service not running")
                         val success = service?.pressRecordedButton() ?: false
+                        Log.d(TAG, "pressRecordedButton result=$success")
                         repo.acknowledgeCommand(
                             commandId = command.id,
                             success = success,
@@ -90,5 +98,6 @@ class CommandListenerService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
+        private const val TAG = "RemoteTap"
     }
 }
