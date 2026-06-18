@@ -1,0 +1,24 @@
+# Gradle
+.gradle/
+build/
+**/build/
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Generated
+app/src/main/assets/
+app/google-services.json
+
+# Keystores / secrets
+*.jks
+*.keystore
+*.p12
+
+# Kotlin incremental compilation
+**/.kotlin/
