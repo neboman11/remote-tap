@@ -32,6 +32,10 @@ class CommandListenerService : Service() {
         startListening()
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
@@ -78,10 +82,11 @@ class CommandListenerService : Service() {
     }
 
     private fun buildNotification() = run {
-        val channelId = "remote_tap_listener"
+        val channelId = "remote_tap_listener_silent"
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(channelId, "RemoteTap Listener", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(channelId, "RemoteTap Listener", NotificationManager.IMPORTANCE_MIN)
+                .apply { setShowBadge(false) }
         )
         val openIntent = PendingIntent.getActivity(
             this, 0, Intent(this, ServerActivity::class.java),
@@ -93,6 +98,8 @@ class CommandListenerService : Service() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(openIntent)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setSilent(true)
             .build()
     }
 

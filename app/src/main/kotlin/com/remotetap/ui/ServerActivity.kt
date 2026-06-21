@@ -1,7 +1,9 @@
 package com.remotetap.ui
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import androidx.appcompat.app.AppCompatActivity
@@ -41,10 +43,21 @@ class ServerActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateStatus()
+        requestBatteryOptimizationExemption()
 
         // Start listener service if accessibility is enabled
         if (isAccessibilityEnabled()) {
             startForegroundService(Intent(this, CommandListenerService::class.java))
+        }
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        val pm = getSystemService(PowerManager::class.java)
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    .setData(Uri.parse("package:$packageName"))
+            )
         }
     }
 
