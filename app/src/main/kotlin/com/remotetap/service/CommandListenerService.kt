@@ -82,10 +82,10 @@ class CommandListenerService : Service() {
     }
 
     private fun buildNotification() = run {
-        val channelId = "remote_tap_listener_silent"
+        val channelId = "remote_tap_listener_v2"
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(channelId, "RemoteTap Listener", NotificationManager.IMPORTANCE_MIN)
+            NotificationChannel(channelId, "RemoteTap Listener", NotificationManager.IMPORTANCE_LOW)
                 .apply { setShowBadge(false) }
         )
         val openIntent = PendingIntent.getActivity(
@@ -98,7 +98,7 @@ class CommandListenerService : Service() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(openIntent)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setSilent(true)
             .build()
     }
