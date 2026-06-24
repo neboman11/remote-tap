@@ -11,12 +11,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 class NotificationForwarderService : NotificationListenerService() {
 
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.IO + job)
     private lateinit var prefs: PreferencesRepository
+
+    // key = sbn.key, value = "$title|$text" last forwarded for that notification
+    private val lastForwarded = ConcurrentHashMap<String, String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -26,6 +30,10 @@ class NotificationForwarderService : NotificationListenerService() {
     override fun onDestroy() {
         super.onDestroy()
         scope.cancel()
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        lastForwarded.remove(sbn.key)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -41,6 +49,11 @@ class NotificationForwarderService : NotificationListenerService() {
         val title = extras.getCharSequence("android.title")?.toString() ?: ""
         val text = extras.getCharSequence("android.text")?.toString() ?: ""
         if (title.isEmpty() && text.isEmpty()) return
+
+        // Skip if this exact content was already forwarded for this notification slot
+        val contentKey = "$title|$text"
+        if (lastForwarded[sbn.key] == contentKey) return
+        lastForwarded[sbn.key] = contentKey
 
         val appName = runCatching {
             packageManager.getApplicationLabel(
