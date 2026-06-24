@@ -1,58 +1,148 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Server — Receiver Phone"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="24dp" />
-
-    <TextView
-        android:id="@+id/tv_pairing_code"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:layout_marginBottom="24dp" />
-
-    <TextView
-        android:id="@+id/status_accessibility"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="15sp"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
-        android:id="@+id/status_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="15sp"
-        android:layout_marginBottom="32dp" />
-
-    <Button
-        android:id="@+id/btn_enable_accessibility"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Open Accessibility Settings"
-        android:layout_marginBottom="12dp" />
+        android:orientation="vertical"
+        android:padding="24dp">
 
-    <Button
-        android:id="@+id/btn_record_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Record Target Button"
-        android:layout_marginBottom="12dp" />
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
 
-    <Button
-        android:id="@+id/btn_reset_pairing"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Reset &amp; Re-pair"
-        style="@style/Widget.Material3.Button.OutlinedButton" />
+        <TextView
+            android:id="@+id/tv_pairing_code"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:layout_marginBottom="24dp" />
 
-</LinearLayout>
+        <TextView
+            android:id="@+id/status_accessibility"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/status_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:layout_marginBottom="32dp" />
+
+        <Button
+            android:id="@+id/btn_enable_accessibility"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Open Accessibility Settings"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btn_record_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Record Target Button"
+            android:layout_marginBottom="24dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorOutlineVariant"
+            android:layout_marginBottom="20dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Notification Forwarding"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/status_companion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btn_pair_companion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pair as watch companion (cross-profile)"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:id="@+id/status_notification_listener"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/status_watched_app"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btn_enable_notification_listener"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Open Notification Access Settings"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btn_pick_app"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pick App to Monitor"
+            android:layout_marginBottom="24dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorOutlineVariant"
+            android:layout_marginBottom="20dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SMS Trigger"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/status_sms_trigger"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btn_configure_sms_trigger"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Configure SMS Trigger"
+            android:layout_marginBottom="24dp" />
+
+        <Button
+            android:id="@+id/btn_reset_pairing"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Reset &amp; Re-pair"
+            style="@style/Widget.Material3.Button.OutlinedButton" />
+
+    </LinearLayout>
+
+</ScrollView>

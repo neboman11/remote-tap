@@ -5,6 +5,7 @@ import com.google.gson.JsonSyntaxException
 import com.remotetap.model.Command
 import com.remotetap.model.CommandResult
 import com.remotetap.model.CommandType
+import com.remotetap.model.NotificationEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -37,6 +38,7 @@ class CommandRepository(
     private val gson = Gson()
     private val cmdTopic = "remotetap-$pairingCode-cmd"
     private val resultTopic = "remotetap-$pairingCode-result"
+    private val notifTopic = "remotetap-$pairingCode-notif"
 
     suspend fun sendCommand(): String = withContext(Dispatchers.IO) {
         val commandId = UUID.randomUUID().toString()
@@ -124,6 +126,37 @@ class CommandRepository(
                     emit(result)
                     return@flow
                 }
+            }
+        }
+    }.flowOn(Dispatchers.IO)
+
+    suspend fun publishNotification(event: NotificationEvent) {
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url("$serverUrl/$notifTopic")
+                .addHeader("Authorization", "Bearer $accessToken")
+                .post(gson.toJson(event).toRequestBody(JSON))
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw IOException("ntfy notif publish failed: ${response.code}")
+            }
+        }
+    }
+
+    fun observeNotifications(): Flow<NotificationEvent> = flow {
+        val request = Request.Builder()
+            .url("$serverUrl/$notifTopic/json")
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+        client.newCall(request).execute().use { response ->
+            val source = response.body?.source() ?: return@use
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                if (line.isBlank()) continue
+                val event = line.parseNtfyEvent() ?: continue
+                if (event.event != "message") continue
+                val notif = runCatching { gson.fromJson(event.message, NotificationEvent::class.java) }.getOrNull()
+                if (notif != null) emit(notif)
             }
         }
     }.flowOn(Dispatchers.IO)

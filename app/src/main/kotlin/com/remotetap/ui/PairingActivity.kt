@@ -33,7 +33,7 @@ class PairingActivity : AppCompatActivity() {
         prefs.pairingCode = code
         if (prefs.deviceId.isEmpty()) prefs.deviceId = UUID.randomUUID().toString()
 
-        binding.labelInstruction.text = "Share this code with your other phone:"
+        binding.labelInstruction.text = "Share this code with your remote phone:"
         binding.tvPairingCode.text = code
         binding.tilPairingCode.visibility = android.view.View.GONE
         binding.btnConfirm.text = "Continue"
@@ -45,7 +45,7 @@ class PairingActivity : AppCompatActivity() {
 
     private fun setupClientPairing() {
         // Client enters the code shown on the server phone
-        binding.labelInstruction.text = "Enter the code shown on your other phone:"
+        binding.labelInstruction.text = "Enter the code shown on the host phone:"
         binding.tvPairingCode.visibility = android.view.View.GONE
         binding.btnConfirm.text = "Connect"
         binding.btnConfirm.setOnClickListener {
