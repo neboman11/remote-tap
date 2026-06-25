@@ -45,6 +45,9 @@ class NotificationForwarderService : NotificationListenerService() {
             if (um.getSerialNumberForUser(sbn.user) != watchedSerial) return
         }
 
+        // Group summary notifications (e.g. "3 new messages") duplicate the individual ones
+        if (sbn.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY != 0) return
+
         val extras = sbn.notification.extras
         val title = extras.getCharSequence("android.title")?.toString() ?: ""
         val text = extras.getCharSequence("android.text")?.toString() ?: ""
